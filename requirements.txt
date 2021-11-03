@@ -1,0 +1,5 @@
+msgpack==1.0.2
+numpy==1.19.5
+PyAudio==0.2.11
+PyYAML==5.4.1
+TTS==0.1.3

@@ -1,0 +1,3 @@
+model: "tts_models/en/ljspeech/tacotron2-DDC"
+# use cuda if it is available
+use_cuda: True
