@@ -6,6 +6,7 @@ from error import BadUsageException
 from tts_interface import AIOTTSConverter
 import dill
 
+CHUNKS_PER_MSG = 100000
 
 class ClientInterface:
     rdr: aio.StreamReader
@@ -44,21 +45,28 @@ class ClientInterface:
                             }
                         )
                         audio = await self.tts_cvtr.tts(text)
+                        fmtd_audio = []
+                        for chunk in audio:
+                            if not type(chunk) == int:
+                                fmtd_audio.append(chunk.tobytes())
                         await self._send_message(
                             {
                                 "type": "tts_status",
-                                "status": "sending_audio"
+                                "status": "sending_audio",
+                                "metadata": {
+                                    "total_chunks": len(fmtd_audio),
+                                }
                             }
                         )
-                        for chunk in audio:
-                            if not type(chunk) == int:
-                                await self._send_message(
-                                    {
-                                        "type": "audio_chunk",
-                                        "audio": chunk.tobytes(),
-                                    },
-                                    False
-                                )
+                        for i in range(0, len(fmtd_audio), CHUNKS_PER_MSG):
+                            chunk_set = fmtd_audio[i:i + CHUNKS_PER_MSG]
+                            await self._send_message(
+                                {
+                                    "type": "audio_chunks",
+                                    "chunks": chunk_set,
+                                },
+                                False
+                            )
                         await self._send_message(
                             {
                                 "type": "tts_status",
@@ -81,10 +89,6 @@ class ClientInterface:
         bmsg = msgpack.dumps(msg)
         self.wrtr.write(bmsg)
         await self.wrtr.drain()
-    
-    def _special_serialize(self, obj):
-        """serialize things msgpack can't, using dill"""
-        return dill.dumps(obj)
 
     async def _close_conn(self):
         if self.closed:
